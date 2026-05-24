@@ -1,52 +1,87 @@
 ﻿# API Sentinel
 
-API Sentinel is a lightweight API monitoring and alerting platform built with FastAPI.
+API Sentinel is an API monitoring and alerting backend system built with FastAPI.
 
-## Current Stage
+Current features:
 
-Stage 1: FastAPI project skeleton.
+- FastAPI backend architecture
+- Dockerized MySQL database
+- SQLAlchemy ORM integration
+- Alembic database migrations
+- User model and database schema management
 
-Implemented:
+Tech stack:
 
-- Health check endpoint: GET /health
-- Basic dependency file
-- Environment variable example
-- Git ignore rules
-
-## Tech Stack
-
-- Python 3.10+
 - FastAPI
-- Uvicorn
-- MySQL
-- SQLAlchemy
+- SQLAlchemy 2.x
 - Alembic
-- Redis
-- JWT
-- pytest
-- Docker Compose
+- MySQL 8
+- Docker
 
-## Run Locally
+## Local Development
 
-Create and activate virtual environment, then install dependencies:
+### 1. Create virtual environment
 
-python -m pip install -r requirements.txt
+```bash
+python -m venv .venv
+```
 
-Start the development server:
+### 2. Activate virtual environment
 
-python -m uvicorn app.main:app --reload
+Windows PowerShell:
 
-Visit:
+```bash
+.venv\Scripts\Activate.ps1
+```
 
-http://127.0.0.1:8000/health
+### 3. Install dependencies
 
-Expected response:
+```bash
+pip install -r requirements.txt
+```
 
-{
-  "status": "ok",
-  "service": "api-sentinel",
-  "version": "0.1.0"
-}
+### 4. Configure environment variables
+
+Create `.env` file:
+
+```env
+DATABASE_URL=mysql+pymysql://root:api_sentinel_root@127.0.0.1:3307/api_sentinel
+```
+
+### 5. Start MySQL with Docker
+
+```bash
+docker run --name api-sentinel-mysql ^
+-e MYSQL_ROOT_PASSWORD=api_sentinel_root ^
+-e MYSQL_DATABASE=api_sentinel ^
+-p 3307:3306 ^
+-v api-sentinel-mysql-data:/var/lib/mysql ^
+-d mysql:8.0
+```
+
+### 6. Run database migrations
+
+```bash
+python -m alembic upgrade head
+```
+
+### 7. Start FastAPI server
+
+```bash
+uvicorn app.main:app --reload
+```
+
+## Project Structure
+
+```text
+app/
+├─ core/          # configuration
+├─ db/            # database session and base
+├─ models/        # ORM models
+├─ main.py
+
+alembic/          # database migrations
+```
 
 ## Roadmap
 
