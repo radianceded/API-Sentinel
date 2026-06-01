@@ -1,24 +1,22 @@
-from fastapi import APIRouter, HTTPException,Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from fastapi.security import OAuth2PasswordBearer
 from fastapi.security import OAuth2PasswordRequestForm
-from app.db.session import SessionLocal
+from app.db.session import get_db
 from app.models.user import User
-from app.schemas.user import UserCreate, UserLogin, Token
+from app.schemas.user import Token, UserCreate, UserOut
 from app.core.security import hash_password, verify_password, create_access_token
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register")
-def register(user_data: UserCreate):
-    db: Session = SessionLocal()
-
+@router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+def register(user_data: UserCreate, db: Session = Depends(get_db)):
     existing_user = db.query(User).filter(User.username == user_data.username).first()
     if existing_user:
-        raise HTTPException(status_code=400, detail="Username already exists")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already exists",
+        )
 
     password_hash = hash_password(user_data.password)
 
@@ -29,27 +27,33 @@ def register(user_data: UserCreate):
 
     db.add(user)
     db.commit()
+    db.refresh(user)
 
-    return {"message": "User created"}
+    return user
 
 
 @router.post("/login", response_model=Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    db: Session = SessionLocal()
-
+def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
+):
     user = db.query(User).filter(User.username == form_data.username).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid username or password")
+    if not user or not verify_password(form_data.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-    if not verify_password(form_data.password, user.password_hash):     
-        raise HTTPException(status_code=401, detail="Invalid username or password")
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Inactive user",
+        )
 
-    access_token = create_access_token(subject=user.id)
+    access_token = create_access_token(subject=user.username)
 
     return {
         "access_token": access_token,
         "token_type": "bearer",
     }
-
-
-
