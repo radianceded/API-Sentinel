@@ -51,7 +51,7 @@ def login(
             detail="Inactive user",
         )
 
-    access_token = create_access_token(subject=user.username)
+    access_token = create_access_token(subject=user.id)
 
     return {
         "access_token": access_token,

@@ -23,11 +23,16 @@ def get_current_user(
     if payload is None:
         raise credentials_exception
 
-    username = payload.get("sub")
-    if not username:
+    user_id = payload.get("sub")
+    if not user_id:
         raise credentials_exception
 
-    user = db.query(User).filter(User.username == username).first()
+    try:
+      user_id = int(user_id)
+    except ValueError:
+      raise credentials_exception
+
+    user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise credentials_exception
 
