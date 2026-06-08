@@ -1,8 +1,11 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from app.schemas.request_log import RequestLogOut
+
+from app.api.deps import get_current_admin_user
 from app.db.session import get_db
 from app.models.request_log import RequestLog
+from app.models.user import User
+from app.schemas.request_log import RequestLogOut
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -13,6 +16,7 @@ def list_request_logs(
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user),
 ):
     logs = (
         db.query(RequestLog)
@@ -23,5 +27,3 @@ def list_request_logs(
     )
 
     return logs
-
-    
