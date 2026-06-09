@@ -2,7 +2,7 @@ import time
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
-
+from app.services.security_detector import detect_login_bruteforce
 from app.db.session import SessionLocal
 from app.models.request_log import RequestLog
 from app.core.security import decode_access_token
@@ -49,6 +49,11 @@ class RequestLogMiddleware(BaseHTTPMiddleware):
             )
 
             db.add(log)
+            db.flush()
+            detect_login_bruteforce(
+    db=db,
+    ip_address=client_host,
+)
             db.commit()
 
         except Exception:
