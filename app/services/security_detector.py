@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime,timedelta
 
 from sqlalchemy.orm import Session
 
@@ -13,7 +13,7 @@ def detect_login_bruteforce(
     if ip_address is None:
         return
 
-    window_start = datetime.now() - timedelta(minutes=5)
+    window_start = datetime.utcnow() - timedelta(minutes=5)
 
     failed_count = (
         db.query(RequestLog)
