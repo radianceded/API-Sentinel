@@ -12,11 +12,5 @@ app.add_middleware(RequestLogMiddleware)
 app.include_router(auth_router)
 app.include_router(user_router)
 app.include_router(admin_router)
-@app.get("/health")
-def health_check():
-    return {
-        "status":"ok",
-        "service":"API-sentinel",
-        "version":"0.1.0",
-    }
+
 
