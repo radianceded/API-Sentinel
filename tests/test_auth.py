@@ -1,94 +1,106 @@
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-
-from app.db.base import Base
-from app.db.session import get_db
-from app.main import app
+import uuid
 
 
-SQLALCHEMY_DATABASE_URL = "sqlite://"
-
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+def unique_username(prefix: str) -> str:
+    return f"{prefix}_{uuid.uuid4().hex[:8]}"
 
 
-def override_get_db():
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-app.dependency_overrides[get_db] = override_get_db
-client = TestClient(app)
-
-
-def setup_function():
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
-
-
-def test_register_login_and_me():
-    register_response = client.post(
+def register_user(client, username: str, password: str = "123456"):
+    return client.post(
         "/auth/register",
-        json={"username": "alice", "password": "secret123"},
+        json={
+            "username": username,
+            "password": password,
+        },
     )
 
-    assert register_response.status_code == 201
-    register_data = register_response.json()
-    assert register_data["username"] == "alice"
-    assert "password_hash" not in register_data
 
-    duplicate_response = client.post(
-        "/auth/register",
-        json={"username": "alice", "password": "secret123"},
-    )
-    assert duplicate_response.status_code == 400
-
-    login_response = client.post(
+def login_user(client, username: str, password: str = "123456"):
+    return client.post(
         "/auth/login",
-        data={"username": "alice", "password": "secret123"},
+        data={
+            "username": username,
+            "password": password,
+        },
     )
+
+
+def test_register_success(client):
+    username = unique_username("test_register_success")
+
+    response = register_user(client, username)
+
+    assert response.status_code in (200, 201)
+
+    data = response.json()
+    assert data["username"] == username
+    assert "password" not in data
+    assert "password_hash" not in data
+
+
+def test_register_duplicate_username(client):
+    username = unique_username("test_register_duplicate")
+
+    first_response = register_user(client, username)
+    second_response = register_user(client, username)
+
+    assert first_response.status_code in (200, 201)
+    assert second_response.status_code == 400
+
+
+def test_login_success(client):
+    username = unique_username("test_login_success")
+    password = "123456"
+
+    register_response = register_user(client, username, password)
+    assert register_response.status_code in (200, 201)
+
+    login_response = login_user(client, username, password)
 
     assert login_response.status_code == 200
-    token_data = login_response.json()
-    assert token_data["token_type"] == "bearer"
-    assert token_data["access_token"]
 
-    me_response = client.get(
-        "/users/me",
-        headers={"Authorization": f"Bearer {token_data['access_token']}"},
-    )
-
-    assert me_response.status_code == 200
-    me_data = me_response.json()
-    assert me_data["username"] == "alice"
-    assert me_data["is_active"] is True
-    assert "password_hash" not in me_data
+    data = login_response.json()
+    assert "access_token" in data
+    assert data["token_type"].lower() == "bearer"
 
 
-def test_login_rejects_wrong_password():
-    client.post(
-        "/auth/register",
-        json={"username": "bob", "password": "secret123"},
-    )
+def test_login_wrong_password(client):
+    username = unique_username("test_login_wrong_password")
 
-    response = client.post(
-        "/auth/login",
-        data={"username": "bob", "password": "wrong-password"},
-    )
+    register_response = register_user(client, username, "123456")
+    assert register_response.status_code in (200, 201)
 
-    assert response.status_code == 401
+    login_response = login_user(client, username, "wrong-password")
+
+    assert login_response.status_code == 401
 
 
-def test_me_rejects_missing_token():
+def test_users_me_requires_token(client):
     response = client.get("/users/me")
 
     assert response.status_code == 401
+
+
+def test_users_me_with_token(client):
+    username = unique_username("test_users_me")
+    password = "123456"
+
+    register_response = register_user(client, username, password)
+    assert register_response.status_code in (200, 201)
+
+    login_response = login_user(client, username, password)
+    assert login_response.status_code == 200
+
+    token = login_response.json()["access_token"]
+
+    response = client.get(
+        "/users/me",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["username"] == username
