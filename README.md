@@ -301,31 +301,48 @@ GET /admin/security-events
 .\.venv\Scripts\activate
 ```
 
-### 2. 启动 MySQL 容器
+### 2. 配置环境变量
+
+复制 `.env.example` 为 `.env`，并按本机数据库信息修改：
+
+```text
+DATABASE_URL=mysql+pymysql://root:password@127.0.0.1:3307/api_sentinel
+SECRET_KEY=change-me-in-production
+```
+
+### 3. 启动 MySQL 容器
 
 ```bash
 docker start <mysql-container-name>
 ```
 
-### 3. 执行数据库迁移
+### 4. 执行数据库迁移
 
 ```bash
 alembic upgrade head
 ```
 
-### 4. 启动 FastAPI
+### 5. 启动 FastAPI
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-### 5. 打开 Swagger UI
+### 6. 打开 Swagger UI
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
-## 测试流程
+## 自动化测试
+
+项目已包含认证、健康检查、管理员请求日志、登录爆破安全事件等核心链路测试。测试环境使用临时 SQLite 数据库，不需要启动本地 MySQL。
+
+```bash
+python -m pytest
+```
+
+## 手动测试流程
 
 ### 1. 注册用户
 
@@ -437,7 +454,6 @@ GET /admin/security-events
 
 计划增加：
 
-* `test_auth.py`
 * `test_request_log.py`
 * `test_security_event.py`
 * Docker Compose 一键启动
@@ -461,5 +477,4 @@ GET /admin/security-events
 API Sentinel 当前已经实现从认证、请求记录、权限控制到异常登录检测的基础安全审计闭环。
 
 一个围绕 API 访问行为构建的后端安全平台雏形。
-
 

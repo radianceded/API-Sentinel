@@ -1,16 +1,25 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from typing import Annotated
+
+from pydantic import BaseModel, ConfigDict, StringConstraints
+
+
+Username = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=3, max_length=50),
+]
+Password = Annotated[str, StringConstraints(min_length=6, max_length=128)]
 
 
 class UserCreate(BaseModel):
-    username: str
-    password: str
+    username: Username
+    password: Password
 
 
 class UserLogin(BaseModel):
-    username: str
-    password: str
+    username: Username
+    password: Password
 
 
 class UserOut(BaseModel):
@@ -20,8 +29,7 @@ class UserOut(BaseModel):
     is_active: bool
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class Token(BaseModel):

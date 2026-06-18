@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class RequestLogOut(BaseModel):
@@ -12,5 +12,4 @@ class RequestLogOut(BaseModel):
     latency_ms: float
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

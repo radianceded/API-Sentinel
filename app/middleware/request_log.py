@@ -9,6 +9,34 @@ from app.core.security import decode_access_token
 from app.models.user import User
 
 
+def _get_user_id_from_authorization(authorization: str | None, db) -> int | None:
+    if not authorization:
+        return None
+
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        return None
+
+    payload = decode_access_token(token.strip())
+    if not payload:
+        return None
+
+    sub = payload.get("sub")
+    if not sub:
+        return None
+
+    try:
+        user_id = int(sub)
+    except (TypeError, ValueError):
+        return None
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        return None
+
+    return user_id
+
+
 class RequestLogMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         start_time = time.time()
@@ -19,23 +47,10 @@ class RequestLogMiddleware(BaseHTTPMiddleware):
 
         db = SessionLocal()
         try:
-            user_id = None
-
-            authorization = request.headers.get("Authorization")
-            if authorization and authorization.startswith("Bearer "):
-                token = authorization.replace("Bearer ", "")
-                payload = decode_access_token(token)
-
-                if payload:
-                    sub = payload.get("sub")
-                    if sub:
-                        try:
-                            user_id = int(sub)
-                            user = db.query(User).filter(User.id == user_id).first()
-                            if user is None:
-                                user_id = None
-                        except ValueError:
-                            user_id = None
+            user_id = _get_user_id_from_authorization(
+                authorization=request.headers.get("Authorization"),
+                db=db,
+            )
 
             client_host = request.client.host if request.client else None
 
@@ -51,9 +66,9 @@ class RequestLogMiddleware(BaseHTTPMiddleware):
             db.add(log)
             db.flush()
             detect_login_bruteforce(
-    db=db,
-    ip_address=client_host,
-)
+                db=db,
+                ip_address=client_host,
+            )
             db.commit()
 
         except Exception:
